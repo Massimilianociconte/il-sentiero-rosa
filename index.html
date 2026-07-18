@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Il Sentiero del Cuore Rosa · per Trudy</title>
+<meta name="description" content="Un piccolo sentiero digitale, fatto a mano, che porta a una storia: Il Sentiero del Cuore Rosa.">
+<meta name="theme-color" content="#571a33">
+<meta property="og:title" content="Il Sentiero del Cuore Rosa">
+<meta property="og:description" content="C'è un sentiero che aspetta solo te.">
+<meta property="og:image" content="assets/cover.webp">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌷</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Manrope:wght@300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="preload" as="image" href="assets/cover.webp">
+<link rel="preload" as="fetch" href="assets/mesh-3d/cuore.glb" crossorigin="anonymous">
+<script>
+  /* Sempre riparti dall'alto + schermata di benvenuto (no restore scroll del browser) */
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+  window.scrollTo(0, 0);
+</script>
+<script type="module" src="js/vendor/model-viewer.min.js"></script>
+</head>
+<body class="locked">
+
+<!-- ═══════════ CANCELLO D'INGRESSO ═══════════ -->
+<div class="gate" id="gate" aria-label="Introduzione">
+  <div class="gate-sky"></div>
+  <div class="gate-stars" aria-hidden="true"></div>
+  <div class="gate-inner">
+    <div class="paper-heart gate-heart" aria-hidden="true">
+      <model-viewer class="heart-model" src="assets/mesh-3d/cuore.glb" alt=""
+        disable-zoom disable-pan disable-tap interaction-prompt="none"
+        auto-rotate auto-rotate-delay="0" rotation-per-second="16deg"
+        camera-orbit="0deg 85deg auto" environment-image="neutral" exposure="1.1" shadow-intensity="0"
+        reveal="manual" loading="eager">
+        <!-- poster vuoto: evita flash SVG/PNG prima del GLB; il modello compare solo a load -->
+        <div slot="poster" class="heart-poster" aria-hidden="true"></div>
+      </model-viewer>
+      <div class="ph-glow" aria-hidden="true"></div>
+    </div>
+    <p class="gate-line" data-line="1">C'è un sentiero che aspetta solo te.</p>
+    <p class="gate-line gate-name" data-line="2">Ciao, Trudy.</p>
+    <button class="gate-btn" id="gateBtn" type="button" data-line="3">
+      <span>Segui il cuore</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v14m0 0l-6-6m6 6l6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 12 12)"/></svg>
+    </button>
+  </div>
+  <p class="gate-hint" data-line="3" aria-hidden="true">tocca per iniziare</p>
+</div>
+
+<!-- barra progresso sentiero -->
+<div class="trail-progress" aria-hidden="true"><div class="trail-progress-fill" id="trailFill"></div></div>
+
+<canvas id="petals" aria-hidden="true"></canvas>
+
+<main id="main">
+
+  <!-- ═══════════ ATTO I · IL SENTIERO ═══════════ -->
+  <header class="hero" id="inizio">
+    <p class="kicker reveal">una storia illustrata, fatta a mano</p>
+    <h1 class="hero-title reveal">Il Sentiero<br><em>del Cuore Rosa</em></h1>
+    <p class="hero-sub reveal">Quattro piccoli amici, un cuore di carta con le ali<br class="br-desk">
+    e una strada che diventa bella solo se percorsa <strong>insieme</strong>.</p>
+    <div class="hero-book reveal" id="heroBook">
+      <div class="hero-book-tilt" id="heroTilt">
+        <img src="assets/cover.webp" alt="Copertina del libro: Il Sentiero del Cuore Rosa" width="640" height="960" fetchpriority="high">
+        <div class="hero-book-shine" aria-hidden="true"></div>
+      </div>
+      <div class="hero-book-shadow" aria-hidden="true"></div>
+    </div>
+    <div class="scroll-cue reveal" aria-hidden="true">
+      <span>scendi lungo il sentiero</span>
+      <div class="scroll-cue-line"></div>
+    </div>
+  </header>
+
+  <!-- ═══════════ INTERLUDIO · LA FIORITURA ═══════════ -->
+  <section class="bloom-journey" id="fioritura" aria-label="Un fiore rosa che sboccia mentre scorri la pagina">
+    <div class="bloom-sticky">
+      <!-- didascalia fuori dallo stage: non copre il tulipano e resta stabile mentre l'animazione è attiva -->
+      <p class="bloom-caption bloom-line-1" aria-hidden="true">Scorri piano: qualcosa sta sbocciando.</p>
+      <div class="bloom-stage" id="bloomStage">
+        <model-viewer id="bloomViewer" class="bloom-model"
+          src="assets/mesh-3d/flower_animated_web.glb"
+          alt="Un fiore rosa che sboccia"
+          interaction-prompt="none" disable-zoom disable-pan disable-tap
+          camera-orbit="0deg 75deg 180%" camera-target="auto auto auto"
+          min-camera-orbit="auto auto 70%" max-camera-orbit="auto auto 320%"
+          environment-image="neutral" exposure="1.05" shadow-intensity="0"
+          animation-crossfade-duration="0"
+          loading="lazy"></model-viewer>
+      </div>
+      <p class="bloom-caption bloom-caption-bottom bloom-line-2" aria-hidden="true">Per te, petalo dopo petalo.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════ ATTO II · I COMPAGNI ═══════════ -->
+  <section class="chapter" id="compagni">
+    <div class="chapter-head reveal">
+      <span class="chapter-num">atto primo</span>
+      <h2>Chi siamo?</h2>
+      <p>Ho creato le versioni 3D dei nostri sticker che puoi girare come vuoi con la tua manina e vedere da ogni prospettiva. Shiamo dei veri peluche!</p>
+    </div>
+    <p class="friends-hint reveal">tocca l'altoparlante per sentire le nostre voci</p>
+    <div class="friends">
+
+      <figure class="friend reveal" style="--d:.0s">
+        <div class="friend-stage">
+          <model-viewer class="friend-model" src="assets/mesh-3d/gorillino.glb"
+            alt="Modello 3D del gorillino"
+            camera-controls disable-zoom disable-pan disable-tap
+            touch-action="pan-y" interaction-prompt="none"
+            rotation-per-second="22deg" auto-rotate-delay="0"
+            camera-orbit="-20deg 80deg auto" min-camera-orbit="auto 55deg auto" max-camera-orbit="auto 105deg auto"
+            environment-image="neutral" exposure="1.02" shadow-intensity="0.85" shadow-softness="0.9"
+            loading="lazy"></model-viewer>
+          <div class="friend-tools">
+            <button class="tool-btn tool-sound" data-sound="assets/suoni-animali/gorillino.m4a" aria-label="Ascolta la voce di Mashi">
+              <svg class="ic-sound" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9c.9.8 1.4 1.8 1.4 3S16.9 14.2 16 15M18.2 6.6c1.5 1.4 2.3 3.3 2.3 5.4s-.8 4-2.3 5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+            <button class="tool-btn tool-spin" aria-pressed="false" aria-label="Attiva la rotazione automatica">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 3v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <figcaption><strong>Mashi</strong><span>Il gorillino</span></figcaption>
+      </figure>
+
+      <figure class="friend reveal" style="--d:.08s">
+        <div class="friend-stage">
+          <model-viewer class="friend-model" src="assets/mesh-3d/tartaruga.glb"
+            alt="Modello 3D della tartaruga con il fiore rosa"
+            camera-controls disable-zoom disable-pan disable-tap
+            touch-action="pan-y" interaction-prompt="none"
+            rotation-per-second="22deg" auto-rotate-delay="0"
+            camera-orbit="-20deg 80deg auto" min-camera-orbit="auto 55deg auto" max-camera-orbit="auto 105deg auto"
+            environment-image="neutral" exposure="1.02" shadow-intensity="0.85" shadow-softness="0.9"
+            loading="lazy"></model-viewer>
+          <div class="friend-tools">
+            <button class="tool-btn tool-sound" data-sound="assets/suoni-animali/tartaruga.m4a" aria-label="Ascolta la voce di Trudy">
+              <svg class="ic-sound" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9c.9.8 1.4 1.8 1.4 3S16.9 14.2 16 15M18.2 6.6c1.5 1.4 2.3 3.3 2.3 5.4s-.8 4-2.3 5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+            <button class="tool-btn tool-spin" aria-pressed="false" aria-label="Attiva la rotazione automatica">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 3v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <figcaption><strong>Trudy</strong><span>La tartarughina</span></figcaption>
+      </figure>
+
+      <figure class="friend reveal" style="--d:.16s">
+        <div class="friend-stage">
+          <model-viewer class="friend-model" src="assets/mesh-3d/paperella.glb"
+            alt="Modello 3D della paperella gialla"
+            camera-controls disable-zoom disable-pan disable-tap
+            touch-action="pan-y" interaction-prompt="none"
+            rotation-per-second="22deg" auto-rotate-delay="0"
+            camera-orbit="-20deg 80deg auto" min-camera-orbit="auto 55deg auto" max-camera-orbit="auto 105deg auto"
+            environment-image="neutral" exposure="1.02" shadow-intensity="0.85" shadow-softness="0.9"
+            loading="lazy"></model-viewer>
+          <div class="friend-tools">
+            <button class="tool-btn tool-sound" data-sound="assets/suoni-animali/paperella.m4a" aria-label="Ascolta la voce di Billy">
+              <svg class="ic-sound" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9c.9.8 1.4 1.8 1.4 3S16.9 14.2 16 15M18.2 6.6c1.5 1.4 2.3 3.3 2.3 5.4s-.8 4-2.3 5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+            <button class="tool-btn tool-spin" aria-pressed="false" aria-label="Attiva la rotazione automatica">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 3v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <figcaption><strong>Billy</strong><span>La paperellina</span></figcaption>
+      </figure>
+
+      <figure class="friend reveal" style="--d:.24s">
+        <div class="friend-stage">
+          <model-viewer class="friend-model" src="assets/mesh-3d/scimmietta.glb"
+            alt="Modello 3D della scimmietta"
+            camera-controls disable-zoom disable-pan disable-tap
+            touch-action="pan-y" interaction-prompt="none"
+            rotation-per-second="22deg" auto-rotate-delay="0"
+            camera-orbit="-20deg 80deg auto" min-camera-orbit="auto 55deg auto" max-camera-orbit="auto 105deg auto"
+            environment-image="neutral" exposure="1.02" shadow-intensity="0.85" shadow-softness="0.9"
+            loading="lazy"></model-viewer>
+          <div class="friend-tools">
+            <button class="tool-btn tool-sound" data-sound="assets/suoni-animali/scimmietta.m4a" aria-label="Ascolta la voce di Sammy">
+              <svg class="ic-sound" viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9c.9.8 1.4 1.8 1.4 3S16.9 14.2 16 15M18.2 6.6c1.5 1.4 2.3 3.3 2.3 5.4s-.8 4-2.3 5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            </button>
+            <button class="tool-btn tool-spin" aria-pressed="false" aria-label="Attiva la rotazione automatica">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 3v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <figcaption><strong>Sammy</strong><span>La scimmietta</span></figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ═══════════ ATTO III · LE PAROLE ═══════════ -->
+  <section class="chapter chapter-words" id="parole">
+    <div class="chapter-head reveal">
+      <span class="chapter-num">atto secondo</span>
+      <h2>Attenzione spoiler!</h2>
+      <p>Ho messo alcune delle scene del racconto che dopo potrai leggere tutto intero.</p>
+    </div>
+
+    <p class="deck-hint reveal">trascina per sfogliare&ensp;·&ensp;tocca per girare la carta</p>
+    <div class="deck reveal" id="deck">
+      <div class="deck-stack" id="deckStack" tabindex="0" role="group" aria-roledescription="mazzo di carte" aria-label="Quattro momenti della storia: trascina per sfogliare, tocca o premi Invio per girare la carta, frecce per scorrere">
+        <article class="card">
+          <div class="card-inner">
+            <div class="card-front"><img src="assets/word-1.webp" alt="I quattro amici decidono di seguire il petalo, insieme" loading="lazy" width="640" height="960" draggable="false"></div>
+            <div class="card-back">
+              <p class="card-quote">«Lo seguiamo?»</p>
+              <p class="card-answer">«Insieme.»</p>
+              <p class="card-cite">l'inizio di ogni cosa</p>
+            </div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-inner">
+            <div class="card-front"><img src="assets/word-2.webp" alt="Mashi aiuta Trudy ad attraversare il ruscello" loading="lazy" width="640" height="960" draggable="false"></div>
+            <div class="card-back">
+              <p class="card-quote">«Ti tengo io.»</p>
+              <p class="card-cite">sulle pietre del ruscello</p>
+            </div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-inner">
+            <div class="card-front"><img src="assets/word-3.webp" alt="Mashi indica la strada verso la luce" loading="lazy" width="640" height="960" draggable="false"></div>
+            <div class="card-back">
+              <p class="card-quote">«Da quella parte?»</p>
+              <p class="card-answer">«Sì, verso la luce.»</p>
+              <p class="card-cite">quando la strada si biforca</p>
+            </div>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-inner">
+            <div class="card-front"><img src="assets/word-4.webp" alt="I quattro amici davanti alla casetta nel bosco" loading="lazy" width="640" height="960" draggable="false"></div>
+            <div class="card-back">
+              <p class="card-quote">«È qui?»</p>
+              <p class="card-answer">«È solo l'inizio.»</p>
+              <p class="card-cite">davanti alla casetta</p>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div class="deck-dots" id="deckDots" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ATTO IV · IL DONO ═══════════ -->
+  <div class="closing">
+    <div class="closing-path" aria-hidden="true"></div>
+    <section class="finale" id="libro">
+      <div class="finale-inner">
+        <div class="paper-heart finale-heart reveal" aria-hidden="true">
+          <model-viewer class="heart-model" src="assets/mesh-3d/cuore.glb" alt=""
+            disable-zoom disable-pan disable-tap interaction-prompt="none"
+            auto-rotate auto-rotate-delay="0" rotation-per-second="16deg"
+            camera-orbit="0deg 85deg auto" environment-image="neutral" exposure="1.1" shadow-intensity="0"
+            reveal="manual" loading="lazy">
+            <div slot="poster" class="heart-poster" aria-hidden="true"></div>
+          </model-viewer>
+          <div class="ph-glow" aria-hidden="true"></div>
+        </div>
+        <span class="chapter-num reveal">atto terzo</span>
+        <h2 class="finale-title reveal">Il cuore di carta<br>è atterrato qui.</h2>
+        <p class="finale-text reveal">Ogni sentiero, prima o poi, porta a un dono.<br>
+        Questo è il tuo: ventisei tavole dipinte, una storia intera,<br class="br-desk">
+        pensata pagina per pagina per te, Trudy.</p>
+        <div class="finale-cta reveal">
+          <button class="btn-primary" id="openReader">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v18H6.5A2.5 2.5 0 0 0 4 23zM12 3h5.5A2.5 2.5 0 0 1 20 5.5V23a2.5 2.5 0 0 0-2.5-2H12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <span>Apri il libro</span>
+          </button>
+          <a class="btn-ghost" id="downloadPdf" href="assets/il-sentiero-del-cuore-rosa.pdf" download="Il_Sentiero_del_Cuore_Rosa.pdf">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11m0 0l-5-5m5 5l5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Scarica il PDF</span>
+          </a>
+        </div>
+        <p class="finale-note reveal">Il libro si sfoglia direttamente qui, pagina per pagina.<br>Se preferisci tenerlo con te, scaricalo: è tuo.</p>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div class="foot-heart" aria-hidden="true">♥</div>
+      <p>Fatto con tanta cura da tuo Mashi Mashi per Trudy · MMXXVI</p>
+    </footer>
+  </div>
+
+</main>
+
+<!-- ═══════════ IL LETTORE ═══════════ -->
+<div class="reader" id="reader" role="dialog" aria-modal="true" aria-label="Il Sentiero del Cuore Rosa — libro sfogliabile" hidden>
+  <div class="reader-chrome reader-top">
+    <span class="reader-title">Il Sentiero del Cuore Rosa</span>
+    <span class="reader-count" id="readerCount" aria-live="polite">1 / 26</span>
+    <button class="reader-icon" id="readerClose" aria-label="Chiudi il libro">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="reader-stage" id="readerStage">
+    <button class="reader-nav reader-prev" id="readerPrev" aria-label="Pagina precedente">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="reader-page-wrap" id="readerWrap">
+      <img class="reader-page" id="readerImg" alt="Pagina del libro" draggable="false">
+      <div class="reader-loading" id="readerLoading" aria-hidden="true"><span></span></div>
+    </div>
+    <button class="reader-nav reader-next" id="readerNext" aria-label="Pagina successiva">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="reader-chrome reader-bottom">
+    <div class="reader-progress" id="readerProgress" aria-hidden="true"><div class="reader-progress-fill" id="readerProgressFill"></div></div>
+    <div class="reader-actions">
+      <button class="reader-icon" id="readerZoom" aria-label="Ingrandisci la pagina" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="19" height="19"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L21 21M11 8v6M8 11h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <a class="reader-icon" href="assets/il-sentiero-del-cuore-rosa.pdf" download="Il_Sentiero_del_Cuore_Rosa.pdf" aria-label="Scarica il PDF">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path d="M12 4v11m0 0l-5-5m5 5l5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="js/main.js" defer></script>
+</body>
+</html>
