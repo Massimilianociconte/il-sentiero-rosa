@@ -89,7 +89,13 @@
     requestAnimationFrame(() => gateBtn.blur());
   });
   window.addEventListener("keydown", (e) => {
-    if (!gateGone && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+    if (gateGone) return;
+    // non intercettare Space/Enter se il focus è già su un controllo
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if ((e.key === " " || e.key === "Enter") && (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "TEXTAREA")) {
+      return;
+    }
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
       e.preventDefault();
       leaveGate();
     }
@@ -281,6 +287,13 @@
 
     function ensureClip(name) {
       if (!ready || clipName === name) return;
+      // fallback se un clip manca (export parziale): resta su Bloom
+      try {
+        const list = bloomMv.availableAnimations;
+        if (Array.isArray(list) && list.length && !list.includes(name)) {
+          name = list.includes("Bloom") ? "Bloom" : list[0];
+        }
+      } catch (_) {}
       clipName = name;
       bloomMv.animationName = name;
       // play+pause: attiva l'azione nel mixer, poi si resta in scrub
