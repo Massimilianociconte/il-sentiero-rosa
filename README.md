@@ -32,8 +32,9 @@ npx @gltf-transform/cli optimize IN.glb OUT.glb \
   --simplify true --simplify-ratio 0.12 --simplify-error 0.01
 ```
 
-Nota: il decoder Draco viene caricato da model-viewer via CDN Google al primo
-modello — serve connessione (ok per il sito pubblicato).
+Nota: il decoder Draco è self-hosted in `js/vendor/draco/` (niente dipendenza
+da gstatic/CDN Google), così i modelli 3D funzionano anche su reti mobile
+restrittive.
 
 Le pagine bianche interne (2 e 27) sono escluse dal lettore ma restano nel PDF.
 

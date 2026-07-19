@@ -25,9 +25,39 @@
   const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const $ = (s, c) => (c || document).querySelector(s);
 
+  /*
+    Reduced-motion: spegne petali, tilt e animazioni CSS decorative.
+    I model-viewer (cuori, amici, tulipano) restano attivi: sono il contenuto
+    del regalo, non chrome UI. Su iOS "Riduci movimento" è spesso acceso e
+    prima spegneva le rotazioni e lasciava il tulipano al frame 0 (invisibile).
+  */
+
+  /** Forza un frame WebGL (iOS Safari a volte lascia il canvas nero finché non si “tocca” il renderer). */
+  function kickModelViewer(mv) {
+    if (!mv) return;
+    try {
+      if (typeof mv.dismissPoster === "function") mv.dismissPoster();
+    } catch (_) {}
+    try {
+      if (typeof mv.updateFraming === "function") mv.updateFraming();
+    } catch (_) {}
+    try {
+      if (typeof mv.jumpCameraToGoal === "function") mv.jumpCameraToGoal();
+    } catch (_) {}
+    // micro reflow: sblocca canvas nero su WebKit
+    const prev = mv.style.visibility;
+    mv.style.visibility = "hidden";
+    void mv.offsetWidth;
+    mv.style.visibility = prev || "";
+  }
+
   /* ───────── cuori 3D: no flash poster, solo quando il GLB è pronto ───────── */
   document.querySelectorAll(".heart-model").forEach((mv) => {
-    if (RM) mv.removeAttribute("auto-rotate");
+    // auto-rotate resta attivo anche con RM (contenuto, non decorazione)
+    if (!mv.hasAttribute("auto-rotate")) {
+      mv.setAttribute("auto-rotate", "");
+      mv.setAttribute("auto-rotate-delay", "0");
+    }
 
     const revealHeart = () => {
       try {
@@ -36,15 +66,23 @@
       mv.classList.add("is-ready");
       const glow = mv.parentElement && mv.parentElement.querySelector(".ph-glow");
       if (glow) glow.classList.add("is-on");
+      // doppio kick: subito + dopo layout (gate/finale su mobile)
+      kickModelViewer(mv);
+      requestAnimationFrame(() => kickModelViewer(mv));
     };
 
     if (mv.loaded) {
       revealHeart();
     } else {
       mv.addEventListener("load", revealHeart, { once: true });
+      mv.addEventListener("error", () => {
+        // se il GLB fallisce, non lasciare il cuore forever a opacity 0
+        mv.classList.add("is-ready");
+      }, { once: true });
       // fallback se load non scatta (errore / timeout)
       setTimeout(() => {
         if (!mv.classList.contains("is-ready") && mv.loaded) revealHeart();
+        else if (!mv.classList.contains("is-ready")) mv.classList.add("is-ready");
       }, 4000);
     }
   });
@@ -142,6 +180,18 @@
     const hideMs = RM ? 220 : 1200;
     setTimeout(() => {
       gate.hidden = true;
+      // libera GPU del cuore del cancello: su mobile i context WebGL sono limitati
+      const gateMv = gate && gate.querySelector("model-viewer");
+      if (gateMv) {
+        try {
+          gateMv.removeAttribute("auto-rotate");
+          gateMv.pause && gateMv.pause();
+        } catch (_) {}
+        // togliere src dopo hide evita di tenere texture in VRAM
+        try {
+          gateMv.removeAttribute("src");
+        } catch (_) {}
+      }
       if (trailSteps) trailSteps.hidden = false;
       if (soundToggle) soundToggle.hidden = false;
     }, hideMs);
@@ -417,15 +467,32 @@
       lastTime = -1;
     }
 
+    function refreshDurations() {
+      // su mobile il duration può arrivare un frame dopo load: riallinea
+      try {
+        if (clipName === "Bloom" || !clipName) {
+          const d = bloomMv.duration;
+          if (d && d > 0.1) dur = d;
+        } else if (clipName === "HeartsBirds") {
+          const d = bloomMv.duration;
+          if (d && d > 0.1) flightDur = d;
+        }
+      } catch (_) {}
+    }
+
     function setClipTime(t) {
       if (Math.abs(t - lastTime) < 0.0008) return;
       lastTime = t;
-      bloomMv.currentTime = t;
+      try {
+        bloomMv.currentTime = t;
+      } catch (_) {}
     }
 
     function setBloomTime(open01) {
-      if (!ready || !dur) return;
+      if (!ready) return;
       ensureClip("Bloom");
+      refreshDurations();
+      if (!dur || dur < 0.1) dur = bloomMv.duration || 4;
       // un solo frame prima della fine: il GLB a duration esatta torna a 0
       setClipTime(Math.min(open01 * dur, Math.max(0, dur - 1 / 120)));
     }
@@ -433,6 +500,8 @@
     function setFlightTime(f01) {
       if (!ready) return;
       ensureClip("HeartsBirds");
+      refreshDurations();
+      if (!flightDur || flightDur < 0.1) flightDur = bloomMv.duration || 7.93;
       // Parcheggio micro dentro il fiore: si può partire da t≈0 senza allargare i bounds.
       // Un soffio prima della fine evita il wrap a 0 del mixer.
       setClipTime(Math.max(0, Math.min(f01 * flightDur, Math.max(0, flightDur - 1 / 60))));
@@ -440,6 +509,8 @@
 
     function setBloomCamera(zoom01) {
       if (!ready) return;
+      // se al load le misure erano 0 (iOS sticky), ricalcola prima di orbitare
+      if (orbitStart < 1 || !isFinite(orbitStart)) syncBloomCameraRange();
       const radius = orbitStart + (orbitEnd - orbitStart) * clamp01(zoom01);
       if (Math.abs(radius - lastOrbit) < 0.015) return;
       lastOrbit = radius;
@@ -471,11 +542,17 @@
 
     function syncBloomCameraRange() {
       const bounds = bloomMv.getBoundingClientRect();
-      const canvasSize = Math.min(bounds.width, bounds.height) || 1;
+      let canvasSize = Math.min(bounds.width, bounds.height);
+      // su iOS sticky a volte il rect è 0 al primo load: fallback al viewport
+      if (!canvasSize || canvasSize < 8) {
+        canvasSize = Math.min(innerWidth * 0.92, innerHeight * 0.55, 520);
+      }
       const referenceSize = Math.min(innerWidth * 0.9, innerHeight * 0.62, 520);
       const scale = canvasSize / Math.max(referenceSize, 1);
-      orbitStart = ORBIT_START_REFERENCE * scale;
-      orbitEnd = ORBIT_END_REFERENCE * scale;
+      // clamp: evita orbit ridicoli se le misure oscillano con la barra URL mobile
+      const s = Math.min(1.45, Math.max(0.75, scale));
+      orbitStart = ORBIT_START_REFERENCE * s;
+      orbitEnd = ORBIT_END_REFERENCE * s;
       lastOrbit = -1;
     }
 
@@ -503,15 +580,14 @@
       // leggero avvicinamento mentre dissolve (non zoom camera: già finito)
       const sc = 1 + fadeEased * 0.07;
 
-      if (ready && !RM) {
+      // scrub scroll-driven sempre attivo (anche con prefers-reduced-motion:
+      // il tulipano è contenuto, non un effetto secondario)
+      if (ready) {
         if (p <= P_BLOOM_END) setBloomTime(openP);
         else setFlightTime(flightP);
         setBloomCamera(zoomP);
-      } else if (ready && RM) {
-        setBloomTime(1);
-        setBloomCamera(0);
       }
-      setBloomVisibility(RM ? 1 : vis, RM ? 1 : sc);
+      setBloomVisibility(vis, sc);
 
       /*
         Didascalie FUORI dallo stage (non sul fiore):
@@ -519,23 +595,18 @@
         - spariscono solo con la dissolvenza finale del tulipano
         - in rewind ricompaiono insieme all'animazione
       */
-      if (!RM) {
-        // entrata dolce nei primi istanti, poi piena finché il fiore non dissolve
-        const enter = p < 0.02 ? clamp01(p / 0.02) : 1;
-        // line1: guida "scorri piano" — stabile per tutta l'apertura e lo zoom
-        const cap1 = enter * vis;
-        // line2: accompagna cuori e colibrì, poi lascia spazio allo zoom
-        const cap2Enter = flightP < 0.04 ? 0
-          : flightP < 0.25 ? clamp01((flightP - 0.04) / 0.21)
-          : flightP < 0.8 ? 1
-          : clamp01(1 - (flightP - 0.8) / 0.2);
-        const cap2 = cap2Enter * vis;
-        setCaption(line1, cap1, 1);
-        setCaption(line2, cap2, 2);
-      } else {
-        setCaption(line1, 0, 1);
-        setCaption(line2, 0, 2);
-      }
+      // entrata dolce nei primi istanti, poi piena finché il fiore non dissolve
+      const enter = p < 0.02 ? clamp01(p / 0.02) : 1;
+      // line1: guida "scorri piano" — stabile per tutta l'apertura e lo zoom
+      const cap1 = enter * vis;
+      // line2: accompagna cuori e colibrì, poi lascia spazio allo zoom
+      const cap2Enter = flightP < 0.04 ? 0
+        : flightP < 0.25 ? clamp01((flightP - 0.04) / 0.21)
+        : flightP < 0.8 ? 1
+        : clamp01(1 - (flightP - 0.8) / 0.2);
+      const cap2 = cap2Enter * vis;
+      setCaption(line1, cap1, 1);
+      setCaption(line2, cap2, 2);
 
       // risparmio GPU quando il fiore è completamente dissolto
       if (bloomStage) {
@@ -554,20 +625,50 @@
     }
 
     const bloomLoading = $("#bloomLoading");
-    bloomMv.addEventListener("load", () => {
+
+    function onBloomLoaded() {
       ready = true;
       if (bloomLoading) bloomLoading.classList.add("is-done");
       bloomMv.animationName = "Bloom";
       try { bloomMv.play(); } catch (_) {}
-      bloomMv.pause();
+      try { bloomMv.pause(); } catch (_) {}
       clipName = "Bloom";
       dur = bloomMv.duration || 4;
       // nessuna interpolazione interna: il tempo lo dettiamo noi
       try { bloomMv.animationCrossfadeDuration = 0; } catch (_) {}
       syncBloomCameraRange();
       lastP = -1;
+      lastTime = -1;
       applyProgress(progress());
-    });
+      // iOS: riallinea framing/camera dopo paint (evita tulipano assente o micro)
+      kickModelViewer(bloomMv);
+      requestAnimationFrame(() => {
+        syncBloomCameraRange();
+        lastTime = -1;
+        lastOrbit = -1;
+        applyProgress(progress());
+        kickModelViewer(bloomMv);
+      });
+      // secondo passaggio: duration a volte matura un frame dopo
+      setTimeout(() => {
+        refreshDurations();
+        lastTime = -1;
+        applyProgress(progress());
+      }, 120);
+    }
+
+    if (bloomMv.loaded) {
+      onBloomLoaded();
+    } else {
+      bloomMv.addEventListener("load", onBloomLoaded, { once: true });
+      bloomMv.addEventListener("error", () => {
+        if (bloomLoading) {
+          bloomLoading.classList.add("is-done");
+          bloomLoading.querySelector("span:last-child") &&
+            (bloomLoading.querySelector("span:last-child").textContent = "Il fiore non si è caricato… scorri pure.");
+        }
+      }, { once: true });
+    }
 
     const bio = new IntersectionObserver((entries) => {
       visible = entries[0].isIntersecting;
@@ -575,25 +676,49 @@
         if (!raf) raf = requestAnimationFrame(update);
         // riallinea al rientro in viewport (anche da sotto, in rewind)
         lastP = -1;
+        if (ready) {
+          syncBloomCameraRange();
+          lastTime = -1;
+        }
+        // se lazy non ha ancora caricato, forza l'attenzione del model-viewer
+        try {
+          if (!bloomMv.loaded && bloomMv.getAttribute("loading") === "lazy") {
+            // nudge: toccare src riattiva il preload su alcuni WebKit
+            const src = bloomMv.getAttribute("src");
+            if (src) bloomMv.setAttribute("src", src);
+          }
+        } catch (_) {}
       } else {
         if (raf) { cancelAnimationFrame(raf); raf = null; }
         try { bloomMv.pause(); } catch (_) {}
       }
-    }, { rootMargin: "20% 0px" });
+    }, { rootMargin: "40% 0px" });
     bio.observe(bloomSec);
 
     window.addEventListener("resize", () => {
       syncBloomCameraRange();
       lastP = -1;
+      lastOrbit = -1;
       if (ready) applyProgress(progress());
     }, { passive: true });
+
+    // barra URL mobile: visualViewport cambia senza resize classico
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => {
+        syncBloomCameraRange();
+        lastP = -1;
+        if (ready) applyProgress(progress());
+      }, { passive: true });
+    }
 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         if (raf) { cancelAnimationFrame(raf); raf = null; }
       } else if (visible && !raf) {
         lastP = -1;
+        lastTime = -1;
         raf = requestAnimationFrame(update);
+        if (ready) kickModelViewer(bloomMv);
       }
     });
   }
@@ -930,20 +1055,29 @@
 
   /* ───────── rotazione automatica dei modelli ───────── */
   document.querySelectorAll(".tool-spin").forEach((btn) => {
+    const stage = btn.closest(".friend-stage");
+    const mv = stage && stage.querySelector("model-viewer");
+    // allinea UI al default auto-rotate in HTML
+    if (mv && mv.hasAttribute("auto-rotate")) {
+      btn.setAttribute("aria-pressed", "true");
+      btn.setAttribute("aria-label", "Ferma la rotazione automatica");
+    }
     btn.addEventListener("click", () => {
-      const mv = btn.closest(".friend-stage").querySelector("model-viewer");
-      const on = !mv.hasAttribute("auto-rotate");
-      if (on) mv.setAttribute("auto-rotate", "");
-      else mv.removeAttribute("auto-rotate");
+      const model = btn.closest(".friend-stage").querySelector("model-viewer");
+      const on = !model.hasAttribute("auto-rotate");
+      if (on) model.setAttribute("auto-rotate", "");
+      else model.removeAttribute("auto-rotate");
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.setAttribute("aria-label", on ? "Ferma la rotazione automatica" : "Attiva la rotazione automatica");
       // se l'utente ha scelto a mano, non sovrascrivere con idle in viewport
-      mv.dataset.userSpin = on ? "1" : "0";
+      model.dataset.userSpin = on ? "1" : "0";
+      delete model.dataset.idleSpin;
     });
   });
 
-  // idle lento in viewport (solo se l'utente non ha deciso diversamente)
-  if ("IntersectionObserver" in window && !RM) {
+  // idle lento in viewport (anche con reduced-motion: è contenuto del regalo)
+  // fuori viewport spegne la rotazione per risparmiare GPU su mobile
+  if ("IntersectionObserver" in window) {
     const friendIO = new IntersectionObserver((entries) => {
       for (const en of entries) {
         const mv = en.target;
@@ -953,13 +1087,24 @@
             mv.setAttribute("auto-rotate", "");
             mv.dataset.idleSpin = "1";
           }
+          // sblocca canvas nero al primo ingresso in vista (Safari)
+          if (mv.loaded) kickModelViewer(mv);
         } else if (mv.dataset.idleSpin === "1") {
           mv.removeAttribute("auto-rotate");
           delete mv.dataset.idleSpin;
         }
       }
-    }, { threshold: 0.35 });
-    document.querySelectorAll(".friend-model").forEach((mv) => friendIO.observe(mv));
+    }, { threshold: 0.2, rootMargin: "10% 0px" });
+    document.querySelectorAll(".friend-model").forEach((mv) => {
+      // partenza con auto-rotate già in HTML; idleSpin traccia lo stato IO
+      if (mv.hasAttribute("auto-rotate")) mv.dataset.idleSpin = "1";
+      mv.addEventListener("load", () => {
+        if (mv.dataset.idleSpin === "1" || mv.hasAttribute("auto-rotate")) {
+          kickModelViewer(mv);
+        }
+      }, { once: true });
+      friendIO.observe(mv);
+    });
   }
 
   /* ───────── il lettore ───────── */

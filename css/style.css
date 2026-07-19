@@ -200,12 +200,18 @@ button.paper-heart:focus-visible {
   pointer-events: none;
   --progress-bar-color: transparent;
   --poster-color: transparent;
-  /* nascosto finché il GLB non è pronto: elimina flash poster/PNG */
+  /* nascosto finché il GLB non è pronto: elimina flash poster/PNG.
+     Usiamo opacity solo a 0/1 (niente valori intermedi prolungati):
+     su Safari iOS opacity<1 + WebGL può lasciare il canvas nero. */
   opacity: 0;
-  transition: opacity .55s ease;
+  transition: opacity .45s ease;
 }
 .heart-model.is-ready {
   opacity: 1;
+}
+/* se reduced-motion: niente fade, compare subito */
+@media (prefers-reduced-motion: reduce) {
+  .heart-model { transition: none; }
 }
 .heart-poster {
   width: 100%; height: 100%;
@@ -654,14 +660,28 @@ body.entered #main {
 .bloom-model {
   width: 100%;
   height: 100%;
+  min-height: 200px; /* evita canvas 0×0 su sticky iOS al primo paint */
   flex: none;
   max-width: none;
   background: transparent;
   pointer-events: none;
   --progress-bar-color: var(--rosa-300);
   --progress-bar-height: 2px;
-  filter: drop-shadow(0 24px 40px rgba(168, 58, 96, .18));
+  /* niente filter CSS sull'host model-viewer: su Safari iOS spegne/rompe WebGL */
 }
+/* ombra soft sul palco, non sul canvas 3D */
+.bloom-stage::after {
+  content: "";
+  position: absolute;
+  left: 18%; right: 18%;
+  bottom: 6%;
+  height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(168, 58, 96, .2), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+.bloom-model { position: relative; z-index: 1; }
 /* Didascalie sopra/sotto l'animazione — fuori dallo stage, non in sovraimpressione sul fiore */
 .bloom-caption {
   position: absolute;
@@ -1727,11 +1747,8 @@ body.entered #main {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .2s !important;
-  }
+  /* Solo animazioni CSS decorative — NON spegnere i model-viewer 3D
+     (auto-rotate e scrub del tulipano restano gestiti in JS come contenuto). */
   .reveal { opacity: 1; transform: none; transition: none; }
   .gate-line, .gate-btn, .gate-hint { opacity: 1; transform: none; animation: none; }
   .gate-heart, .finale-heart, .ph-glow, .gate-stars, .secret-seal { animation: none; }
@@ -1742,4 +1759,8 @@ body.entered #main {
   .heart-model.is-ready { opacity: 1; }
   .bloom-loading-dot { animation: none; }
   .reader-page.turn { animation: none; }
+  .friends-hint-a, .friends-hint-b { animation: none; }
+  .friends-hint-a { opacity: 1; position: relative; }
+  .friends-hint-b { display: none; }
+  .card-rocks-heart, .foot-heart { animation: none; }
 }
