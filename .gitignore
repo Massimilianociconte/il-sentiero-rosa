@@ -2,3 +2,6 @@
 .claude/
 node_modules/
 .gemini/
+
+# original high-res 3D sources (not served)
+assets-source/

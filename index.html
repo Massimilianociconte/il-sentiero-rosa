@@ -31,7 +31,7 @@
   <div class="gate-sky"></div>
   <div class="gate-stars" aria-hidden="true"></div>
   <div class="gate-inner">
-    <div class="paper-heart gate-heart" aria-hidden="true">
+    <button type="button" class="paper-heart gate-heart" id="gateHeart" aria-label="Un segreto per te">
       <model-viewer class="heart-model" src="assets/mesh-3d/cuore.glb" alt=""
         disable-zoom disable-pan disable-tap interaction-prompt="none"
         auto-rotate auto-rotate-delay="0" rotation-per-second="16deg"
@@ -41,7 +41,8 @@
         <div slot="poster" class="heart-poster" aria-hidden="true"></div>
       </model-viewer>
       <div class="ph-glow" aria-hidden="true"></div>
-    </div>
+    </button>
+    <p class="gate-whisper" id="gateWhisper" hidden aria-live="polite">Per te, solo per te — Mashi.</p>
     <p class="gate-line" data-line="1">C'è un sentiero che ti aspetta.</p>
     <p class="gate-line gate-name" data-line="2">Ciao, Trudy.</p>
     <button class="gate-btn" id="gateBtn" type="button" data-line="3">
@@ -55,16 +56,29 @@
 <!-- barra progresso sentiero -->
 <div class="trail-progress" aria-hidden="true"><div class="trail-progress-fill" id="trailFill"></div></div>
 
+<!-- tappe del sentiero (dopo l'ingresso) -->
+<nav class="trail-steps" id="trailSteps" aria-label="Tappe del sentiero" hidden>
+  <button type="button" class="trail-step" data-target="inizio" aria-current="true"><span>Inizio</span></button>
+  <button type="button" class="trail-step" data-target="fioritura"><span>Fiore</span></button>
+  <button type="button" class="trail-step" data-target="compagni"><span>Noi</span></button>
+  <button type="button" class="trail-step" data-target="parole"><span>Parole</span></button>
+  <button type="button" class="trail-step" data-target="libro"><span>Libro</span></button>
+</nav>
+
+<!-- toggle suono delicato (click pagine / petali) -->
+<button type="button" class="sound-toggle" id="soundToggle" aria-pressed="false" aria-label="Attiva i suoni del sentiero" hidden>
+  <svg class="ic-sound-off" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+  <svg class="ic-sound-on" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9.5v5a1 1 0 0 0 1 1h2.6l4 3.2a.8.8 0 0 0 1.3-.6V5.9a.8.8 0 0 0-1.3-.6l-4 3.2H5a1 1 0 0 0-1 1Z" fill="currentColor"/><path d="M16 9c.9.8 1.4 1.8 1.4 3S16.9 14.2 16 15M18.2 6.6c1.5 1.4 2.3 3.3 2.3 5.4s-.8 4-2.3 5.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+</button>
+
 <canvas id="petals" aria-hidden="true"></canvas>
 
 <main id="main">
 
   <!-- ═══════════ ATTO I · IL SENTIERO ═══════════ -->
   <header class="hero" id="inizio">
-    <p class="kicker reveal">illustrato a mano · per te</p>
     <h1 class="hero-title reveal">Il Sentiero<br><em>del Cuore Rosa</em></h1>
-    <p class="hero-sub reveal">Quattro amici, un cuore di carta e un cammino<br class="br-desk">
-    che ha senso soltanto se lo fate <strong>insieme</strong>.</p>
+    <p class="hero-sub reveal">4 specchi delle nostre personalità, riflessi in animi fanciulleschi che percorrono un sentiero intrigante alla ricerca di qualcosa.... <strong>Che cosa?</strong></p>
     <div class="hero-book reveal" id="heroBook">
       <div class="hero-book-tilt" id="heroTilt">
         <img src="assets/cover.webp" alt="Copertina del libro: Il Sentiero del Cuore Rosa" width="640" height="960" fetchpriority="high">
@@ -84,6 +98,10 @@
       <!-- didascalia fuori dallo stage: non copre il tulipano e resta stabile mentre l'animazione è attiva -->
       <p class="bloom-caption bloom-line-1" aria-hidden="true">Scorri piano.</p>
       <div class="bloom-stage" id="bloomStage">
+        <div class="bloom-loading" id="bloomLoading" aria-hidden="true">
+          <span class="bloom-loading-dot"></span>
+          <span>Il sentiero si apre…</span>
+        </div>
         <model-viewer id="bloomViewer" class="bloom-model"
           src="assets/mesh-3d/flower_animated_web.glb"
           alt="Un fiore rosa che sboccia"
@@ -105,7 +123,10 @@
       <h2>Chi siamo?</h2>
       <p>Ho creato le versioni 3D dei nostri sticker che puoi girare come vuoi con la tua manina e vedere da ogni prospettiva. Shiamo dei veri peluche!</p>
     </div>
-    <p class="friends-hint reveal">tocca l'altoparlante per sentire le nostre voci</p>
+    <p class="friends-hint reveal" aria-live="polite">
+      <span class="friends-hint-line friends-hint-a">tocca l'altoparlante per sentire le nostre voci</span>
+      <span class="friends-hint-line friends-hint-b" aria-hidden="true">So bene che ti piace ascoltare le cose</span>
+    </p>
     <div class="friends">
 
       <figure class="friend reveal" style="--d:.0s">
@@ -208,7 +229,7 @@
     <div class="chapter-head reveal">
       <span class="chapter-num">atto secondo</span>
       <h2>Attenzione spoiler!</h2>
-      <p>Ho messo alcune delle scene del racconto che dopo potrai leggere tutto intero.</p>
+      <p>Ho messo alcune delle scene del racconto che potrai leggere interamente.</p>
     </div>
 
     <p class="deck-hint reveal">trascina per sfogliare&ensp;·&ensp;tocca per girare la carta</p>
@@ -217,44 +238,106 @@
         <article class="card">
           <div class="card-inner">
             <div class="card-front"><img src="assets/word-1.webp" alt="I quattro amici decidono di seguire il petalo, insieme" loading="lazy" width="640" height="960" draggable="false"></div>
-            <div class="card-back">
-              <p class="card-quote">«Lo seguiamo?»</p>
-              <p class="card-answer">«Insieme.»</p>
-              <p class="card-cite">l'inizio di ogni cosa</p>
+            <div class="card-back card-back-photo">
+              <div class="card-photo-mat">
+                <img src="assets/memory-1-fiori.webp" alt="Un mazzo di fiori blu" loading="lazy" width="640" height="850" draggable="false">
+                <div class="card-photo-veil" aria-hidden="true"></div>
+              </div>
+              <span class="card-photo-seal" aria-hidden="true">❦</span>
             </div>
           </div>
         </article>
         <article class="card">
           <div class="card-inner">
             <div class="card-front"><img src="assets/word-2.webp" alt="Mashi aiuta Trudy ad attraversare il ruscello" loading="lazy" width="640" height="960" draggable="false"></div>
-            <div class="card-back">
-              <p class="card-quote">«Ti tengo io.»</p>
-              <p class="card-cite">sulle pietre del ruscello</p>
+            <div class="card-back card-back-photo">
+              <div class="card-photo-mat">
+                <img class="photo-pos-faces" src="assets/memory-2-noi.webp" alt="Trudy e Mashi, un selfie vicino" loading="lazy" width="640" height="850" draggable="false">
+                <div class="card-photo-veil" aria-hidden="true"></div>
+              </div>
+              <span class="card-photo-seal" aria-hidden="true">❦</span>
             </div>
           </div>
         </article>
         <article class="card">
           <div class="card-inner">
             <div class="card-front"><img src="assets/word-3.webp" alt="Mashi indica la strada verso la luce" loading="lazy" width="640" height="960" draggable="false"></div>
-            <div class="card-back">
-              <p class="card-quote">«Da quella parte?»</p>
-              <p class="card-answer">«Sì, verso la luce.»</p>
-              <p class="card-cite">quando la strada si biforca</p>
+            <div class="card-back card-back-photo">
+              <div class="card-photo-mat">
+                <img class="photo-pos-hug" src="assets/memory-3-abbraccio.webp" alt="Un abbraccio allo specchio" loading="lazy" width="640" height="850" draggable="false">
+                <div class="card-photo-veil" aria-hidden="true"></div>
+              </div>
+              <span class="card-photo-seal" aria-hidden="true">❦</span>
             </div>
           </div>
         </article>
-        <article class="card">
+        <article class="card" data-has-rocks="true">
           <div class="card-inner">
             <div class="card-front"><img src="assets/word-4.webp" alt="I quattro amici davanti alla casetta nel bosco" loading="lazy" width="640" height="960" draggable="false"></div>
-            <div class="card-back">
-              <p class="card-quote">«È qui?»</p>
-              <p class="card-answer">«È solo l'inizio.»</p>
-              <p class="card-cite">davanti alla casetta</p>
+            <div class="card-back card-back-rocks">
+              <p class="card-rocks-label">i nostri sassi · gira con la mano</p>
+              <div class="card-rocks-stage">
+                <figure class="card-rock">
+                  <div class="card-rock-stage">
+                    <img class="card-rock-poster" src="assets/sasso-mashi-poster.webp" alt="" width="256" height="320" draggable="false" loading="lazy">
+                    <model-viewer class="card-rock-model"
+                      data-src="assets/mesh-3d/sasso-mashi-3d-model.glb"
+                      alt="Sasso 3D di Mashi"
+                      camera-controls touch-action="none"
+                      interaction-prompt="none" disable-zoom disable-pan
+                      auto-rotate auto-rotate-delay="0" rotation-per-second="18deg"
+                      camera-orbit="35deg 65deg 120%" camera-target="auto auto auto"
+                      field-of-view="30deg"
+                      environment-image="neutral" exposure="1.15" shadow-intensity="0.35" shadow-softness="1"
+                      loading="eager"
+                      poster="assets/sasso-mashi-poster.webp"
+                      reveal="auto"></model-viewer>
+                  </div>
+                  <figcaption>Mashi</figcaption>
+                </figure>
+                <div class="card-rocks-heart" aria-hidden="true">♥</div>
+                <figure class="card-rock">
+                  <div class="card-rock-stage">
+                    <img class="card-rock-poster" src="assets/sasso-trudy-poster.webp" alt="" width="256" height="320" draggable="false" loading="lazy">
+                    <model-viewer class="card-rock-model"
+                      data-src="assets/mesh-3d/sasso-trudy-3d-model.glb"
+                      alt="Sasso 3D di Trudy"
+                      camera-controls touch-action="none"
+                      interaction-prompt="none" disable-zoom disable-pan
+                      auto-rotate auto-rotate-delay="180" rotation-per-second="16deg"
+                      camera-orbit="-35deg 65deg 120%" camera-target="auto auto auto"
+                      field-of-view="30deg"
+                      environment-image="neutral" exposure="1.15" shadow-intensity="0.35" shadow-softness="1"
+                      loading="eager"
+                      poster="assets/sasso-trudy-poster.webp"
+                      reveal="auto"></model-viewer>
+                  </div>
+                  <figcaption>Trudy</figcaption>
+                </figure>
+              </div>
+            </div>
+          </div>
+        </article>
+        <!-- carta segreta: messaggio personale -->
+        <article class="card card-secret" data-secret="true">
+          <div class="card-inner">
+            <div class="card-front card-front-secret">
+              <div class="secret-video-wrap">
+                <video class="secret-video" id="secretTrudyVideo"
+                  src="assets/video-paperella-card-trudy.mp4"
+                  playsinline loop preload="auto"
+                  aria-label="Paperella 3D — ecco questa sei te per me"></video>
+              </div>
+              <p class="secret-front-label">Ecco questa sei te per me</p>
+            </div>
+            <div class="card-back card-back-secret">
+              <p class="card-quote">E' stata una grande scelta il tirocinio di Neurobiologia...</p>
+              <p class="card-answer card-answer-smug">😏</p>
             </div>
           </div>
         </article>
       </div>
-      <div class="deck-dots" id="deckDots" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="deck-dots" id="deckDots" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></div>
     </div>
   </section>
 
@@ -293,7 +376,8 @@
 
     <footer class="foot">
       <div class="foot-heart" aria-hidden="true">♥</div>
-      <p>Fatto con tanta cura da tuo Mashi Mashi per Trudy · MMXXVI</p>
+      <p>Fatto con tanta cura e amore dal tuo Mashi Mashi<br>
+      Per Trudy, Luglio 2026</p>
     </footer>
   </div>
 
@@ -313,6 +397,13 @@
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="reader-page-wrap" id="readerWrap">
+      <!-- dedica (pagina 0 virtuale) -->
+      <div class="reader-dedication" id="readerDedication" hidden>
+        <p class="reader-dedication-kicker">per Trudy</p>
+        <p class="reader-dedication-text">Questo sentiero l’ho costruito pensando a te.<br>Pagina dopo pagina, con cura.</p>
+        <p class="reader-dedication-sign">— Mashi</p>
+        <button type="button" class="reader-dedication-btn" id="dedicationStart">Inizia il libro</button>
+      </div>
       <img class="reader-page" id="readerImg" alt="Pagina del libro" draggable="false">
       <div class="reader-loading" id="readerLoading" aria-hidden="true"><span></span></div>
     </div>
@@ -322,6 +413,7 @@
   </div>
   <div class="reader-chrome reader-bottom">
     <div class="reader-progress" id="readerProgress" aria-hidden="true"><div class="reader-progress-fill" id="readerProgressFill"></div></div>
+    <p class="reader-bookmark" id="readerBookmark" hidden aria-live="polite"></p>
     <div class="reader-actions">
       <button class="reader-icon" id="readerZoom" aria-label="Ingrandisci la pagina" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="19" height="19"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5L21 21M11 8v6M8 11h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>

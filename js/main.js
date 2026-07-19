@@ -49,9 +49,73 @@
     }
   });
 
+  /* ───────── suoni delicati del sentiero (Web Audio, muti di default) ───────── */
+  let soundOn = false;
+  let audioCtx = null;
+  const soundToggle = $("#soundToggle");
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+
+  function playSoftTone(kind) {
+    if (!soundOn || RM) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    if (kind === "page") {
+      osc.frequency.setValueAtTime(520, t0);
+      osc.frequency.exponentialRampToValueAtTime(280, t0 + 0.12);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.045, t0 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    } else if (kind === "whisper") {
+      osc.frequency.setValueAtTime(380, t0);
+      osc.frequency.exponentialRampToValueAtTime(440, t0 + 0.22);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.035, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+    } else {
+      // soft chime
+      osc.frequency.setValueAtTime(660, t0);
+      osc.frequency.exponentialRampToValueAtTime(990, t0 + 0.18);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.04, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+    }
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.4);
+  }
+
+  if (soundToggle) {
+    soundToggle.addEventListener("click", () => {
+      soundOn = !soundOn;
+      soundToggle.setAttribute("aria-pressed", soundOn ? "true" : "false");
+      soundToggle.setAttribute("aria-label", soundOn ? "Disattiva i suoni del sentiero" : "Attiva i suoni del sentiero");
+      if (soundOn) {
+        ensureAudio();
+        playSoftTone("chime");
+      }
+    });
+  }
+
   /* ───────── cancello ───────── */
   const gate = $("#gate");
   const gateBtn = $("#gateBtn");
+  const gateHeart = $("#gateHeart");
+  const gateWhisper = $("#gateWhisper");
+  const trailSteps = $("#trailSteps");
   document.body.classList.add("locked");
 
   let gateGone = false;
@@ -76,10 +140,27 @@
     setTimeout(revealHero, RM ? 40 : 180);
 
     const hideMs = RM ? 220 : 1200;
-    setTimeout(() => { gate.hidden = true; }, hideMs);
+    setTimeout(() => {
+      gate.hidden = true;
+      if (trailSteps) trailSteps.hidden = false;
+      if (soundToggle) soundToggle.hidden = false;
+    }, hideMs);
 
     // petali dopo un attimo, sincronizzati con l'apertura
     setTimeout(startPetals, RM ? 0 : 280);
+    playSoftTone("chime");
+  }
+
+  // easter egg: tocco sul cuore → sussurro personale
+  if (gateHeart && gateWhisper) {
+    gateHeart.addEventListener("click", (e) => {
+      e.stopPropagation();
+      gateWhisper.hidden = false;
+      // force reflow for transition
+      void gateWhisper.offsetWidth;
+      gateWhisper.classList.add("show");
+      playSoftTone("whisper");
+    });
   }
 
   gateBtn.addEventListener("click", (e) => {
@@ -90,9 +171,11 @@
   });
   window.addEventListener("keydown", (e) => {
     if (gateGone) return;
-    // non intercettare Space/Enter se il focus è già su un controllo
-    const tag = (document.activeElement && document.activeElement.tagName) || "";
-    if ((e.key === " " || e.key === "Enter") && (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "TEXTAREA")) {
+    // non intercettare Space/Enter se il focus è già su un controllo (tranne il cuore segreto)
+    const active = document.activeElement;
+    const tag = (active && active.tagName) || "";
+    if ((e.key === " " || e.key === "Enter") && active === gateHeart) return;
+    if ((e.key === " " || e.key === "Enter") && (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "TEXTAREA") && active !== gateBtn) {
       return;
     }
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
@@ -120,20 +203,48 @@
     revealEls.forEach((el) => el.classList.add("in"));
   }
 
-  /* ───────── progresso sentiero ───────── */
+  /* ───────── progresso sentiero + tappe ───────── */
   const trailFill = $("#trailFill");
+  const stepButtons = trailSteps ? Array.from(trailSteps.querySelectorAll(".trail-step")) : [];
+  const stepTargets = stepButtons.map((btn) => ({
+    id: btn.dataset.target,
+    el: document.getElementById(btn.dataset.target),
+    btn,
+  })).filter((item) => item.el);
+
   let ticking = false;
+  function updateTrailSteps() {
+    if (!stepTargets.length) return;
+    const mid = window.innerHeight * 0.38;
+    let active = stepTargets[0];
+    for (const item of stepTargets) {
+      const top = item.el.getBoundingClientRect().top;
+      if (top <= mid) active = item;
+    }
+    stepTargets.forEach((item) => {
+      item.btn.setAttribute("aria-current", item === active ? "true" : "false");
+    });
+  }
   function onScroll() {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       trailFill.style.transform = `scaleX(${max > 0 ? Math.min(window.scrollY / max, 1) : 0})`;
+      updateTrailSteps();
       ticking = false;
     });
   }
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+
+  stepButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      target.scrollIntoView({ behavior: RM ? "auto" : "smooth", block: "start" });
+    });
+  });
 
   /* ───────── tilt copertina (solo pointer fine) ───────── */
   const tilt = $("#heroTilt");
@@ -442,8 +553,10 @@
       raf = visible ? requestAnimationFrame(update) : null;
     }
 
+    const bloomLoading = $("#bloomLoading");
     bloomMv.addEventListener("load", () => {
       ready = true;
+      if (bloomLoading) bloomLoading.classList.add("is-done");
       bloomMv.animationName = "Bloom";
       try { bloomMv.play(); } catch (_) {}
       bloomMv.pause();
@@ -500,11 +613,43 @@
       [-3.4, -7, 5],
       [2.6, 8, 9],
       [-1.6, -3, 13],
+      [1.8, 5, 16],
     ];
     let order = cards.slice();
     let drag = null;
     let lockY = 0;
     let freezeCount = 0;
+
+    const secretVideo = $("#secretTrudyVideo");
+
+    function syncSecretVideo() {
+      if (!secretVideo) return;
+      const top = order[0];
+      const showFront =
+        top &&
+        top.dataset.secret === "true" &&
+        !top.classList.contains("flipped") &&
+        !top.classList.contains("leaving");
+      if (showFront) {
+        // audio attivo: arriviamo qui dopo un gesto (tap/swipe), quindi l'autoplay con suono è permesso
+        secretVideo.muted = false;
+        secretVideo.volume = 1;
+        const play = secretVideo.play();
+        if (play && typeof play.catch === "function") {
+          play.catch(() => {
+            // fallback: se il browser blocca ancora, sblocca al prossimo tocco sulla card
+            secretVideo.muted = false;
+            const unlock = () => {
+              secretVideo.play().catch(() => {});
+              stack.removeEventListener("pointerup", unlock);
+            };
+            stack.addEventListener("pointerup", unlock, { once: true });
+          });
+        }
+      } else {
+        secretVideo.pause();
+      }
+    }
 
     function layout() {
       order.forEach((card, i) => {
@@ -517,8 +662,80 @@
       });
       const topIdx = cards.indexOf(order[0]);
       dots.forEach((d, i) => d.classList.toggle("on", i === topIdx));
+      syncSecretVideo();
     }
     layout();
+
+    /** Precarica / mostra i sassi 3D (file compressi ~350KB). */
+    function loadCardRocks(card, { forceRepaint = false } = {}) {
+      if (!card || card.dataset.hasRocks !== "true") return;
+      card.querySelectorAll(".card-rock-model").forEach((mv) => {
+        const src = mv.getAttribute("data-src");
+        if (!src) return;
+        const stage = mv.closest(".card-rock-stage");
+
+        const markReady = () => {
+          mv.classList.add("is-ready");
+          if (stage) stage.classList.add("is-live");
+          try {
+            if (typeof mv.updateFraming === "function") mv.updateFraming();
+          } catch (_) {}
+          // WebGL dentro card con rotateY: un reflow sblocca il canvas nero
+          if (forceRepaint) {
+            const prev = mv.style.visibility;
+            mv.style.visibility = "hidden";
+            void mv.offsetWidth;
+            mv.style.visibility = prev || "";
+            try {
+              if (typeof mv.updateFraming === "function") mv.updateFraming();
+            } catch (_) {}
+          }
+        };
+
+        const onLoaded = () => {
+          // aspetta che il modello sia davvero disegnabile
+          const onVis = (ev) => {
+            if (ev && ev.detail && ev.detail.visible === false) return;
+            markReady();
+          };
+          mv.addEventListener("model-visibility", onVis, { once: true });
+          // fallback se l'evento non arriva
+          window.setTimeout(markReady, 900);
+        };
+
+        if (!mv.getAttribute("src")) {
+          mv.addEventListener("load", onLoaded, { once: true });
+          mv.addEventListener("error", () => {
+            console.warn("Rock model failed to load:", src);
+            if (stage) stage.classList.remove("is-live");
+            mv.classList.remove("is-ready");
+          }, { once: true });
+          mv.setAttribute("src", src);
+        } else if (mv.loaded) {
+          onLoaded();
+        } else {
+          mv.addEventListener("load", onLoaded, { once: true });
+        }
+      });
+    }
+
+    function revealCardRocks(card) {
+      if (!card || card.dataset.hasRocks !== "true") return;
+      loadCardRocks(card, { forceRepaint: false });
+      window.setTimeout(() => loadCardRocks(card, { forceRepaint: true }), 720);
+    }
+
+    // preload quando la sezione spoiler entra in vista
+    const rocksCard = stack.querySelector('.card[data-has-rocks="true"]');
+    if (rocksCard && "IntersectionObserver" in window) {
+      const rocksIO = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          loadCardRocks(rocksCard);
+          rocksIO.disconnect();
+        }
+      }, { rootMargin: "200px 0px" });
+      rocksIO.observe(stack);
+    }
 
     function cycle() {
       const top = order.shift();
@@ -549,11 +766,25 @@
       document.documentElement.style.scrollBehavior = prev;
     }
 
+    function isRockOrbitTarget(target) {
+      if (!target || !target.closest) return false;
+      // lascia i gesture al model-viewer dei sassi (rotazione con la mano)
+      return !!(
+        target.closest(".card-rock-model") ||
+        target.closest(".card-rock-stage.is-live")
+      );
+    }
+
     function onPointerDown(e) {
       const top = order[0];
       if (!top || !top.contains(e.target) || drag) return;
       // solo tasto primario / touch / pen
       if (e.pointerType === "mouse" && e.button !== 0) return;
+
+      // se stai girando un sasso 3D, non avviare lo swipe del mazzo
+      if (top.classList.contains("flipped") && isRockOrbitTarget(e.target)) {
+        return;
+      }
 
       // evita focus + scroll-into-view del browser
       e.preventDefault();
@@ -606,6 +837,11 @@
         card.style.setProperty("--tx", "0px");
         card.style.setProperty("--ty", "0px");
         card.style.setProperty("--rot", "0deg");
+        if (card.classList.contains("flipped")) {
+          playSoftTone("whisper");
+          revealCardRocks(card);
+        }
+        syncSecretVideo();
         drag = null;
         unfreezePage();
       } else if (dist > 80 || (quick && dist > 40)) {
@@ -649,7 +885,14 @@
         cycle();
         e.preventDefault();
       } else if (e.key === "Enter" || e.key === " ") {
-        order[0].classList.toggle("flipped");
+        const top = order[0];
+        if (!top) return;
+        top.classList.toggle("flipped");
+        if (top.classList.contains("flipped")) {
+          playSoftTone("whisper");
+          revealCardRocks(top);
+        }
+        syncSecretVideo();
         e.preventDefault();
       }
     });
@@ -694,8 +937,30 @@
       else mv.removeAttribute("auto-rotate");
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.setAttribute("aria-label", on ? "Ferma la rotazione automatica" : "Attiva la rotazione automatica");
+      // se l'utente ha scelto a mano, non sovrascrivere con idle in viewport
+      mv.dataset.userSpin = on ? "1" : "0";
     });
   });
+
+  // idle lento in viewport (solo se l'utente non ha deciso diversamente)
+  if ("IntersectionObserver" in window && !RM) {
+    const friendIO = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        const mv = en.target;
+        if (mv.dataset.userSpin === "1" || mv.dataset.userSpin === "0") continue;
+        if (en.isIntersecting) {
+          if (!mv.hasAttribute("auto-rotate")) {
+            mv.setAttribute("auto-rotate", "");
+            mv.dataset.idleSpin = "1";
+          }
+        } else if (mv.dataset.idleSpin === "1") {
+          mv.removeAttribute("auto-rotate");
+          delete mv.dataset.idleSpin;
+        }
+      }
+    }, { threshold: 0.35 });
+    document.querySelectorAll(".friend-model").forEach((mv) => friendIO.observe(mv));
+  }
 
   /* ───────── il lettore ───────── */
   const TOTAL = 26;
@@ -715,10 +980,15 @@
   const btnZoom = $("#readerZoom");
   const openBtn = $("#openReader");
   const stage = $("#readerStage");
+  const dedication = $("#readerDedication");
+  const dedicationStart = $("#dedicationStart");
+  const readerBookmark = $("#readerBookmark");
 
   let current = 0;
   let readerOpenFlag = false;
   let lastFocus = null;
+  let showingDedication = false;
+  let pendingResumePage = 0;
 
   function pick(i) {
     const dispW = Math.min(innerWidth * 0.94, (innerHeight - 150) * 0.667);
@@ -732,7 +1002,19 @@
     im.src = pick(i);
   }
 
+  function setDedicationVisible(on) {
+    showingDedication = on;
+    reader.classList.toggle("showing-dedication", on);
+    if (dedication) {
+      dedication.hidden = !on;
+    }
+    if (readerImg) readerImg.hidden = on;
+    if (btnPrev) btnPrev.disabled = on || current === 0;
+    if (btnNext) btnNext.disabled = on;
+  }
+
   function show(i, dir) {
+    setDedicationVisible(false);
     current = Math.max(0, Math.min(TOTAL - 1, i));
     reader.classList.add("loading");
     readerImg.classList.remove("turn");
@@ -747,6 +1029,7 @@
       readerImg.classList.add("turn");
       preload(current + 1);
       preload(current - 1);
+      playSoftTone("page");
     };
     im.onerror = () => reader.classList.remove("loading");
     im.src = src;
@@ -757,6 +1040,24 @@
     btnPrev.disabled = current === 0;
     btnNext.disabled = current === TOTAL - 1;
     try { sessionStorage.setItem("trudy-page", String(current)); } catch (e) {}
+    updateBookmarkHint(false);
+  }
+
+  function updateBookmarkHint(offerResume) {
+    if (!readerBookmark) return;
+    if (!offerResume || pendingResumePage <= 0) {
+      readerBookmark.hidden = true;
+      readerBookmark.innerHTML = "";
+      return;
+    }
+    readerBookmark.hidden = false;
+    readerBookmark.innerHTML = `Segnalibro: pagina ${pendingResumePage + 1}. <button type="button" id="resumePageBtn">Continua da lì</button>`;
+    const resumeBtn = $("#resumePageBtn");
+    if (resumeBtn) {
+      resumeBtn.addEventListener("click", () => {
+        show(pendingResumePage, 1);
+      }, { once: true });
+    }
   }
 
   function openReader() {
@@ -767,15 +1068,32 @@
     document.body.classList.add("locked");
     if (window.__petalsPause) window.__petalsPause();
     requestAnimationFrame(() => reader.classList.add("open"));
-    let start = 0;
-    try { start = parseInt(sessionStorage.getItem("trudy-page") || "0", 10) || 0; } catch (e) {}
-    show(start, 1);
-    btnClose.focus();
+
+    let saved = 0;
+    try { saved = parseInt(sessionStorage.getItem("trudy-page") || "0", 10) || 0; } catch (e) {}
+    pendingResumePage = saved > 0 ? saved : 0;
+
+    // dedica all'apertura, poi si può riprendere dal segnalibro
+    setDedicationVisible(true);
+    readerCount.textContent = "dedica";
+    readerFill.style.width = "0%";
+    btnPrev.disabled = true;
+    btnNext.disabled = true;
+    updateBookmarkHint(pendingResumePage > 0);
+    if (dedicationStart) dedicationStart.focus();
+    else btnClose.focus();
+  }
+
+  function startBookFromDedication() {
+    setDedicationVisible(false);
+    show(0, 1);
+    updateBookmarkHint(false);
   }
 
   function closeReader() {
     reader.classList.remove("open");
     readerOpenFlag = false;
+    showingDedication = false;
     document.body.classList.remove("locked");
     if (window.__petalsResume) window.__petalsResume();
     setTimeout(() => { reader.hidden = true; }, 480);
@@ -784,8 +1102,20 @@
 
   openBtn.addEventListener("click", openReader);
   btnClose.addEventListener("click", closeReader);
-  btnPrev.addEventListener("click", () => show(current - 1, -1));
-  btnNext.addEventListener("click", () => show(current + 1, 1));
+  btnPrev.addEventListener("click", () => {
+    if (showingDedication) return;
+    show(current - 1, -1);
+  });
+  btnNext.addEventListener("click", () => {
+    if (showingDedication) {
+      startBookFromDedication();
+      return;
+    }
+    show(current + 1, 1);
+  });
+  if (dedicationStart) {
+    dedicationStart.addEventListener("click", startBookFromDedication);
+  }
 
   btnZoom.addEventListener("click", () => {
     const z = reader.classList.toggle("zoomed");
@@ -796,8 +1126,13 @@
   window.addEventListener("keydown", (e) => {
     if (!readerOpenFlag) return;
     if (e.key === "Escape") closeReader();
-    else if (e.key === "ArrowRight") show(current + 1, 1);
-    else if (e.key === "ArrowLeft") show(current - 1, -1);
+    else if (e.key === "ArrowRight") {
+      if (showingDedication) startBookFromDedication();
+      else show(current + 1, 1);
+    }
+    else if (e.key === "ArrowLeft") {
+      if (!showingDedication) show(current - 1, -1);
+    }
     else if (e.key === "Tab") {
       const focusables = reader.querySelectorAll("button:not([disabled]), a[href]");
       const list = Array.from(focusables);
@@ -818,6 +1153,10 @@
     swiping = false;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (showingDedication) {
+        if (dx < 0) startBookFromDedication();
+        return;
+      }
       if (dx < 0) show(current + 1, 1); else show(current - 1, -1);
     }
   }, { passive: true });
