@@ -444,10 +444,10 @@ body.entered #main {
 
 /* ─────────────── la fioritura (scroll-driven) ─────────────── */
 
-.bloom-journey {
+.bloom-journey { /* fasi: apertura → cuori e colibrì → zoom → dissolvenza */
   position: relative; z-index: 2;
   /* più scroll = ritmo uniforme tra apertura, zoom e dissolvenza */
-  height: 440vh;
+  height: 620vh;
   background:
     radial-gradient(70% 30% at 15% 12%, rgba(246, 201, 207, .45), transparent 70%),
     radial-gradient(70% 30% at 85% 70%, rgba(253, 228, 205, .5), transparent 72%),

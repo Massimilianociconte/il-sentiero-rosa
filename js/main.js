@@ -223,11 +223,13 @@
     window.__petalsResume = () => { if (!raf && !document.hidden) frame(); };
   }
 
-  /* ───────── la fioritura scroll-driven (apertura → zoom → fade, con rewind) ─────────
+  /* ───────── la fioritura scroll-driven (apertura → cuori e colibrì → zoom → fade) ─────────
      Timeline su progress p ∈ [0,1], tutto lineare e reversibile:
-       0      → P_BLOOM_END : apertura bocciolo (animazione GLB)
-       P_BLOOM → P_ZOOM_END : zoom nella corolla (stessa “velocità” di scroll)
-       P_ZOOM  → 1          : dissolvenza elegante del tulipano
+       0        → P_BLOOM_END  : apertura bocciolo (clip GLB "Bloom")
+       P_BLOOM  → P_FLIGHT_END : tre cuoricini e tre colibrì emergono dal centro
+                                 e si disperdono (clip GLB "HeartsBirds")
+       P_FLIGHT → P_ZOOM_END   : zoom nella corolla (invariato, solo posticipato)
+       P_ZOOM   → 1            : dissolvenza elegante del tulipano (invariata)
      Scroll indietro = rewind perfetto (stesse funzioni, nessuna transition CSS).
   */
   const bloomMv = $("#bloomViewer");
@@ -238,9 +240,10 @@
     const line1 = document.querySelector(".bloom-line-1");
     const line2 = document.querySelector(".bloom-line-2");
 
-    // quote di scroll: zoom non più compresso nell'ultimo sesto
-    const P_BLOOM_END = 0.46;
-    const P_ZOOM_END = 0.78;
+    // quote di scroll: apertura → cuori e colibrì → zoom → dissolvenza
+    const P_BLOOM_END = 0.3;
+    const P_FLIGHT_END = 0.62;
+    const P_ZOOM_END = 0.85;
     const ORBIT_START_REFERENCE = 140;
     const ORBIT_END_REFERENCE = 46;
 
@@ -273,13 +276,42 @@
       return p < 0 ? 0 : p > 1 ? 1 : p;
     }
 
-    function setBloomTime(open01) {
-      if (!ready || !dur) return;
-      // un solo frame prima della fine: il GLB a duration esatta torna a 0
-      const t = Math.min(open01 * dur, Math.max(0, dur - 1 / 120));
+    let flightDur = 7.93;
+    let clipName = null;
+
+    function ensureClip(name) {
+      if (!ready || clipName === name) return;
+      clipName = name;
+      bloomMv.animationName = name;
+      // play+pause: attiva l'azione nel mixer, poi si resta in scrub
+      try { bloomMv.play(); bloomMv.pause(); } catch (_) {}
+      const d = bloomMv.duration;
+      if (d && d > 0.1) {
+        if (name === "Bloom") dur = d;
+        else if (name === "HeartsBirds") flightDur = d;
+      }
+      lastTime = -1;
+    }
+
+    function setClipTime(t) {
       if (Math.abs(t - lastTime) < 0.0008) return;
       lastTime = t;
       bloomMv.currentTime = t;
+    }
+
+    function setBloomTime(open01) {
+      if (!ready || !dur) return;
+      ensureClip("Bloom");
+      // un solo frame prima della fine: il GLB a duration esatta torna a 0
+      setClipTime(Math.min(open01 * dur, Math.max(0, dur - 1 / 120)));
+    }
+
+    function setFlightTime(f01) {
+      if (!ready) return;
+      ensureClip("HeartsBirds");
+      // Parcheggio micro dentro il fiore: si può partire da t≈0 senza allargare i bounds.
+      // Un soffio prima della fine evita il wrap a 0 del mixer.
+      setClipTime(Math.max(0, Math.min(f01 * flightDur, Math.max(0, flightDur - 1 / 60))));
     }
 
     function setBloomCamera(zoom01) {
@@ -327,12 +359,17 @@
       // ── fase 1: apertura bocciolo ──
       const openP = clamp01(p / P_BLOOM_END);
 
-      // ── fase 2: zoom (stessa linearità dello scroll; parte solo a fiore aperto) ──
-      const zoomP = p <= P_BLOOM_END
+      // ── fase 2: cuoricini e colibrì dal centro del fiore ──
+      const flightP = p <= P_BLOOM_END
         ? 0
-        : clamp01((p - P_BLOOM_END) / (P_ZOOM_END - P_BLOOM_END));
+        : clamp01((p - P_BLOOM_END) / (P_FLIGHT_END - P_BLOOM_END));
 
-      // ── fase 3: dissolvenza dopo lo zoom ──
+      // ── fase 3: zoom (parte solo dopo la dispersione di cuori e colibrì) ──
+      const zoomP = p <= P_FLIGHT_END
+        ? 0
+        : clamp01((p - P_FLIGHT_END) / (P_ZOOM_END - P_FLIGHT_END));
+
+      // ── fase 4: dissolvenza dopo lo zoom ──
       const fadeP = p <= P_ZOOM_END
         ? 0
         : clamp01((p - P_ZOOM_END) / (1 - P_ZOOM_END));
@@ -343,7 +380,8 @@
       const sc = 1 + fadeEased * 0.07;
 
       if (ready && !RM) {
-        setBloomTime(openP);
+        if (p <= P_BLOOM_END) setBloomTime(openP);
+        else setFlightTime(flightP);
         setBloomCamera(zoomP);
       } else if (ready && RM) {
         setBloomTime(1);
@@ -362,10 +400,11 @@
         const enter = p < 0.02 ? clamp01(p / 0.02) : 1;
         // line1: guida "scorri piano" — stabile per tutta l'apertura e lo zoom
         const cap1 = enter * vis;
-        // line2: compare a fiore quasi aperto, resta fino alla fade (sempre sotto, non sul fiore)
-        const cap2Enter = openP < 0.78 ? 0
-          : openP < 0.95 ? clamp01((openP - 0.78) / 0.17)
-          : 1;
+        // line2: accompagna cuori e colibrì, poi lascia spazio allo zoom
+        const cap2Enter = flightP < 0.04 ? 0
+          : flightP < 0.25 ? clamp01((flightP - 0.04) / 0.21)
+          : flightP < 0.8 ? 1
+          : clamp01(1 - (flightP - 0.8) / 0.2);
         const cap2 = cap2Enter * vis;
         setCaption(line1, cap1, 1);
         setCaption(line2, cap2, 2);
@@ -393,7 +432,9 @@
     bloomMv.addEventListener("load", () => {
       ready = true;
       bloomMv.animationName = "Bloom";
+      try { bloomMv.play(); } catch (_) {}
       bloomMv.pause();
+      clipName = "Bloom";
       dur = bloomMv.duration || 4;
       // nessuna interpolazione interna: il tempo lo dettiamo noi
       try { bloomMv.animationCrossfadeDuration = 0; } catch (_) {}
